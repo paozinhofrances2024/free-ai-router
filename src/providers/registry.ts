@@ -244,7 +244,22 @@ export const MODEL_CATALOG: readonly ModelDef[] = [
     m('Meta-Llama-3.1-8B-Instruct', 'Llama 3.1 8B', 'B', 28.8, 128, ['sambanova'], true),
     m('google/gemma-3-27b-it:free', 'Gemma 3 27B', 'B', 22, 128, ['openrouter'], true),
     m('bigcode/starcoder2-15b', 'StarCoder2 15B', 'B', 25, 16, ['huggingface'], true),
+    // ── GOOGLE AI STUDIO (free tier) ───────────────────────
+    m('gemini-3-pro-preview', 'Gemini 3 Pro', 'S+', 78, 1000, ['googleai'], true),
+    m('gemini-3.1-pro-preview', 'Gemini 3.1 Pro', 'S+', 79, 1000, ['googleai'], true),
+    m('gemini-3-flash-preview', 'Gemini 3 Flash', 'S+', 74, 1000, ['googleai'], true),
+    m('gemini-2.5-flash', 'Gemini 2.5 Flash', 'S+', 72, 1000, ['googleai'], true),
+    m('gemini-2.5-flash-lite', 'Gemini 2.5 Flash-Lite', 'A+', 55, 1000, ['googleai'], true),
+    m('gemini-2.5-pro', 'Gemini 2.5 Pro', 'S+', 75, 1000, ['googleai'], true),
+    m('gemini-2.0-flash', 'Gemini 2.0 Flash', 'A+', 55, 1000, ['googleai'], true),
+    m('gemma-4-31b-it', 'Gemma 4 31B', 'A+', 55, 128, ['googleai'], true),
+    m('gemma-4-26b-a4b-it', 'Gemma 4 26B', 'A', 45, 128, ['googleai'], true),
     m('gemma-3-27b-it', 'Gemma 3 27B', 'B', 22, 128, ['googleai'], true),
+    m('gemma-3-12b-it', 'Gemma 3 12B', 'C', 15, 128, ['googleai'], true),
+    m('gemma-3-4b-it', 'Gemma 3 4B', 'C', 10, 128, ['googleai'], true),
+    m('gemma-3n-e4b-it', 'Gemma 3n E4B', 'C', 12, 128, ['googleai'], true),
+    m('gemma-3n-e2b-it', 'Gemma 3n E2B', 'C', 8, 128, ['googleai'], true),
+
     m('@cf/meta/llama-3.1-8b-instruct', 'Llama 3.1 8B', 'B', 28.8, 128, ['cloudflare'], true),
     m('sonar', 'Sonar', 'B', 25, 128, ['perplexity'], true),
 
@@ -253,8 +268,6 @@ export const MODEL_CATALOG: readonly ModelDef[] = [
     m('microsoft/phi-3.5-mini-instruct', 'Phi 3.5 Mini', 'C', 12, 128, ['nvidia'], true),
     m('microsoft/phi-4-mini-instruct', 'Phi 4 Mini', 'C', 14, 128, ['nvidia'], true),
     m('google/gemma-3-12b-it:free', 'Gemma 3 12B', 'C', 15, 128, ['openrouter'], true),
-    m('gemma-3-12b-it', 'Gemma 3 12B', 'C', 15, 128, ['googleai'], true),
-    m('gemma-3-4b-it', 'Gemma 3 4B', 'C', 10, 128, ['googleai'], true),
 ] as const;
 
 /**
