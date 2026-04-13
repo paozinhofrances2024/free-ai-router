@@ -151,7 +151,7 @@ describe('FreeRouter with task routing', () => {
             providers: ['groq'],
             minTier: 'B',
             autoDetectTask: true,
-            useLLMClassifier: true,
+            autoDetectTask: true,
         });
     }
 

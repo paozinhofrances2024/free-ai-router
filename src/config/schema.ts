@@ -83,9 +83,6 @@ export const RouterConfigSchema = z.object({
     /** Enable automatic task detection from prompts */
     autoDetectTask: z.boolean().default(true),
 
-    /** Use LLM for task classification instead of heuristics */
-    useLLMClassifier: z.boolean().default(false),
-
     /** Path to persist router state to disk */
     stateFile: z.string().optional(),
 }).strict();

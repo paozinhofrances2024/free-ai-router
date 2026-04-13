@@ -28,8 +28,8 @@ import { FreeRouterError, NoAvailableModelError, AllKeysExhaustedError, Provider
 import { createLogger, type Logger } from './utils/logger.js'
 import { StateStore } from './persistence/state-store.js'
 import { QuotaMonitor } from './health/quota-monitor.js'
-import { scoreForTask, detectTask, type TaskType } from './selection/task-router.js'
-import { classifyWithLLM, classifyWithCascade, CLASSIFIER_PRESETS, type TaskType as TT } from './selection/task-classifier.js'
+import { scoreForTask, type TaskType } from './selection/task-router.js'
+import { classifyWithCascade, CLASSIFIER_PRESETS } from './selection/task-classifier.js'
 import { extractRetryAfter } from './quota/header-extractor.js'
 
 export class FreeAIRouterCore extends EventEmitter {
@@ -251,27 +251,23 @@ export class FreeAIRouterCore extends EventEmitter {
         if (!params.task && !this.config.defaultTask && this.config.autoDetectTask && params.messages?.length) {
             const promptText = params.messages.map((m: any) => m.content).join(' ')
 
-            if (this.config.useLLMClassifier) {
-                // Cascade: free small models first → Groq fallback (paid, reliable)
-                const msgs = (params.messages || []) as Array<{ role: string; content: string }>
-                const keys: Record<string, string> = {}
-                const groqKey = this.keyManager.getKey('groq')?.key || process.env.GROQ_API_KEY
-                const googleKey = this.keyManager.getKey('googleai')?.key || process.env.GOOGLE_API_KEY
-                const openrouterKey = this.keyManager.getKey('openrouter')?.key || process.env.OPENROUTER_API_KEY
-                if (groqKey) keys.GROQ_API_KEY = groqKey
-                if (googleKey) keys.GOOGLE_API_KEY = googleKey
-                if (openrouterKey) keys.OPENROUTER_API_KEY = openrouterKey
+            // Always use LLM cascade for classification
+            const msgs = (params.messages || []) as Array<{ role: string; content: string }>
+            const keys: Record<string, string> = {}
+            const groqKey = this.keyManager.getKey('groq')?.key || process.env.GROQ_API_KEY
+            const googleKey = this.keyManager.getKey('googleai')?.key || process.env.GOOGLE_API_KEY
+            const openrouterKey = this.keyManager.getKey('openrouter')?.key || process.env.OPENROUTER_API_KEY
+            if (groqKey) keys.GROQ_API_KEY = groqKey
+            if (googleKey) keys.GOOGLE_API_KEY = googleKey
+            if (openrouterKey) keys.OPENROUTER_API_KEY = openrouterKey
 
-                if (Object.keys(keys).length > 0) {
-                    const result = await classifyWithCascade(msgs, keys)
-                    task = result.task
-                    this.logger.log(`Task (${result.method}): '${task}' confidence=${result.confidence}`)
-                } else {
-                    task = detectTask(promptText)
-                    this.logger.log(`Task (heuristic): '${task}'`)
-                }
+            if (Object.keys(keys).length > 0) {
+                const result = await classifyWithCascade(msgs, keys)
+                task = result.task
+                this.logger.log(`Task (${result.method}): '${task}' confidence=${result.confidence}`)
             } else {
-                task = detectTask(promptText)
+                task = 'general'
+                this.logger.log('Task: general (no API keys for classifier)')
             }
         }
 
