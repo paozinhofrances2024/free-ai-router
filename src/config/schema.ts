@@ -77,6 +77,12 @@ export const RouterConfigSchema = z.object({
     /** Default model when none specified in request */
     defaultModel: z.string().optional(),
 
+    /** Default task type for routing (auto-detected if not set) */
+    defaultTask: z.enum(['coding', 'reasoning', 'creative', 'fast', 'vision', 'general']).optional(),
+
+    /** Enable automatic task detection from prompts */
+    autoDetectTask: z.boolean().default(true),
+
     /** Path to persist router state to disk */
     stateFile: z.string().optional(),
 }).strict();

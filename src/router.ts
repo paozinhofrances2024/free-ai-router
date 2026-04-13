@@ -28,6 +28,7 @@ import { FreeRouterError, NoAvailableModelError, AllKeysExhaustedError, Provider
 import { createLogger, type Logger } from './utils/logger.js'
 import { StateStore } from './persistence/state-store.js'
 import { QuotaMonitor } from './health/quota-monitor.js'
+import { scoreForTask, detectTask, type TaskType } from './selection/task-router.js'
 import { extractRetryAfter } from './quota/header-extractor.js'
 
 export class FreeAIRouterCore extends EventEmitter {
@@ -243,6 +244,11 @@ export class FreeAIRouterCore extends EventEmitter {
 
     public async resolveModel(params: any = {}): Promise<ModelResolution> {
         const requestedModel = typeof params.model === 'string' ? params.model : this.config.defaultModel
+        const task: TaskType = params.task || this.config.defaultTask || (
+            this.config.autoDetectTask && params.messages?.length
+                ? detectTask(params.messages.map((m: any) => m.content).join(' '))
+                : 'general'
+        )
 
         const availableModels = await this.getAvailableModels()
 
@@ -300,6 +306,22 @@ export class FreeAIRouterCore extends EventEmitter {
         if (requestedModel === 'free:best') stratName = 'best'
         if (requestedModel === 'free:cheap') stratName = 'least-used'
         if (requestedModel === 'free:smart') stratName = 'smart'
+
+        // Task-based routing: if task is not 'general', score candidates for task fit
+        if (task !== 'general' && !requestedModel) {
+            const taskScored = scoreForTask(filteredCandidates, task)
+            if (taskScored.length > 0) {
+                const best = taskScored[0]
+                const fallbacks = taskScored.slice(1).map(s => ({ model: s.model, provider: s.provider }))
+                this.logger.log(`Task '${task}' → ${best.model.modelId} via ${best.provider.id} (${best.reason}, score: ${best.score})`)
+                return {
+                    model: best.model,
+                    provider: best.provider,
+                    reason: `task:${task} ${best.reason}`,
+                    fallbacks,
+                }
+            }
+        }
 
         const selector = createSelector(stratName)
         const resolution = selector(filteredCandidates)

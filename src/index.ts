@@ -6,6 +6,8 @@ export { FreeAIRouterOpenAI as default, FreeAIRouterOpenAI as FreeAIRouter }
 export { type RouterConfig, type RouterConfigInput } from './config/schema.js'
 export * from './providers/types.js'
 
+export { type TaskType, detectTask, getTaskProfile } from './selection/task-router.js'
+
 // Export Error classes for consumer usage
 export {
     FreeRouterError,
