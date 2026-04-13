@@ -240,6 +240,8 @@ export const MODEL_CATALOG: readonly ModelDef[] = [
     m('deepseek-ai/deepseek-r1-distill-llama-8b', 'R1 Distill 8B', 'B', 28.2, 32, ['nvidia'], true),
     m('deepseek-ai/deepseek-r1-distill-qwen-7b', 'R1 Distill 7B', 'B', 22.6, 32, ['nvidia'], true),
     m('llama-3.1-8b-instant', 'Llama 3.1 8B', 'B', 28.8, 128, ['groq'], true),
+    m('groq/compound', 'Groq Compound', 'A', 40, 128, ['groq'], true),
+    m('groq/compound-mini', 'Groq Compound Mini', 'B+', 32, 128, ['groq'], true),
     m('llama3.1-8b', 'Llama 3.1 8B', 'B', 28.8, 128, ['cerebras'], true),
     m('Meta-Llama-3.1-8B-Instruct', 'Llama 3.1 8B', 'B', 28.8, 128, ['sambanova'], true),
     m('google/gemma-3-27b-it:free', 'Gemma 3 27B', 'B', 22, 128, ['openrouter'], true),
