@@ -21,6 +21,7 @@ import { ZAI } from './zai.js';
 import { QWEN } from './qwen.js';
 import { IFLOW } from './iflow.js';
 import { REPLICATE } from './replicate.js';
+import { AIHUBMIX } from './aihubmix.js';
 
 // ─── Provider Registry ─────────────────────────────────────────────────────
 
@@ -29,7 +30,7 @@ const ALL_PROVIDERS: readonly ProviderDef[] = [
     NVIDIA, GROQ, CEREBRAS, SAMBANOVA, OPENROUTER,
     HUGGINGFACE, DEEPINFRA, FIREWORKS, CODESTRAL, TOGETHER,
     GOOGLEAI, SILICONFLOW, SCALEWAY, HYPERBOLIC, CLOUDFLARE,
-    PERPLEXITY, ZAI, QWEN, IFLOW, REPLICATE,
+    PERPLEXITY, ZAI, QWEN, IFLOW, REPLICATE, AIHUBMIX,
 ] as const;
 
 /** Map of provider IDs → ProviderDef for O(1) lookups */
@@ -115,6 +116,21 @@ export const MODEL_CATALOG: readonly ModelDef[] = [
     m('TBStars2-200B-A13B', 'TBStars2 200B', 'S+', 77.8, 128, ['iflow'], true),
     m('deepseek-v3.2', 'DeepSeek V3.2', 'S+', 73.1, 128, ['iflow'], true),
     m('deepseek-r1', 'DeepSeek R1', 'S+', 70.6, 128, ['iflow'], true),
+
+    // ── AIHubMix (proxy for multiple providers) ──────────────
+    m('coding-minimax-m2.7-free', 'MiniMax M2.7 Coding', 'S+', 78, 205, ['aihubmix'], true),
+    m('coding-minimax-m2.5-free', 'MiniMax M2.5 Coding', 'S+', 74, 205, ['aihubmix'], true),
+    m('coding-minimax-m2.1-free', 'MiniMax M2.1 Coding', 'S+', 74, 205, ['aihubmix'], true),
+    m('coding-glm-4.6-free', 'GLM 4.6 Coding', 'S+', 70, 200, ['aihubmix'], true),
+    m('gpt-4.1-free', 'GPT-4.1', 'S+', 75, 128, ['aihubmix'], true),
+    m('gpt-4.1-mini-free', 'GPT-4.1 Mini', 'A+', 55, 128, ['aihubmix'], true),
+    m('gpt-4.1-nano-free', 'GPT-4.1 Nano', 'A', 42, 128, ['aihubmix'], true),
+    m('gpt-4o-free', 'GPT-4o', 'S+', 70, 128, ['aihubmix'], true),
+    m('gemini-3-flash-preview-free', 'Gemini 3 Flash', 'S+', 72, 1000, ['aihubmix'], true),
+    m('kimi-for-coding-free', 'Kimi Coding', 'A+', 55, 131, ['aihubmix'], true),
+    m('qwen3.6-plus-preview-free', 'Qwen 3.6 Plus', 'S+', 70, 1000, ['aihubmix'], true),
+    m('mimo-v2-flash-free', 'Mimo V2 Flash', 'A', 45, 128, ['aihubmix'], true),
+    m('step-3.5-flash-free', 'Step 3.5 Flash', 'S+', 74, 256, ['aihubmix'], true),
 
     // ── TIER S ──────────────────────────────────────────────
     m('deepseek-ai/deepseek-v3.1-terminus', 'DeepSeek V3.1 Term', 'S', 68.4, 128, ['nvidia'], true),

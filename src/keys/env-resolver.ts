@@ -19,6 +19,7 @@ const PROVIDER_ENV_MAP: ReadonlyArray<readonly [string, readonly string[]]> = [
     ['cloudflare', ['CLOUDFLARE_API_TOKEN']],
     ['perplexity', ['PERPLEXITY_API_KEY', 'PPLX_API_KEY']],
     ['zai', ['ZAI_API_KEY']],
+    ['aihubmix', ['AIHUBMIX_API_KEY']],
 ] as const;
 
 /** Catch-all env var name */
