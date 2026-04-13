@@ -1,17 +1,7 @@
 // src/selection/task-classifier.ts — LLM-based task classification with heuristic fallback
 import { detectTask as heuristicDetect, type TaskType } from './task-router.js';
 
-const CLASSIFIER_PROMPT = `Classify this user prompt into exactly one category. Reply with ONLY the category word, nothing else.
-
-Categories:
-- coding (programming, debugging, writing code)
-- reasoning (analysis, math, logic, explanation)
-- creative (writing, stories, poems, brainstorming)
-- fast (simple questions, quick lookups, yes/no)
-- vision (image analysis, visual content)
-- general (anything else)
-
-Prompt: `;
+const CLASSIFIER_PROMPT = 'Classify this prompt. Reply ONLY with one of: coding reasoning creative fast general\nPrompt: ';
 
 /** Cache for classification results (LRU, 100 entries) */
 const classCache = new Map<string, { task: TaskType; ts: number }>();
@@ -101,7 +91,7 @@ export const CLASSIFIER_PRESETS = {
     groq: {
         apiUrl: 'https://api.groq.com/openai/v1/chat/completions',
         envVar: 'GROQ_API_KEY',
-        model: 'gemma-3-1b-it', // Free, fast (~50ms)
+        model: 'llama-3.1-8b-instant', // Free, ~26ms response
     },
     cerebras: {
         apiUrl: 'https://api.cerebras.ai/v1/chat/completions',
