@@ -29,7 +29,7 @@ import { createLogger, type Logger } from './utils/logger.js'
 import { StateStore } from './persistence/state-store.js'
 import { QuotaMonitor } from './health/quota-monitor.js'
 import { scoreForTask, detectTask, type TaskType } from './selection/task-router.js'
-import { classifyWithLLM, CLASSIFIER_PRESETS, type TaskType as TT } from './selection/task-classifier.js'
+import { classifyWithLLM, classifyWithCascade, CLASSIFIER_PRESETS, type TaskType as TT } from './selection/task-classifier.js'
 import { extractRetryAfter } from './quota/header-extractor.js'
 
 export class FreeAIRouterCore extends EventEmitter {
@@ -252,21 +252,20 @@ export class FreeAIRouterCore extends EventEmitter {
             const promptText = params.messages.map((m: any) => m.content).join(' ')
 
             if (this.config.useLLMClassifier) {
-                // Groq Llama 8B (billing = no limits, ~26ms)
+                // Cascade: free small models first → Groq fallback (paid, reliable)
+                const msgs = (params.messages || []) as Array<{ role: string; content: string }>
+                const keys: Record<string, string> = {}
                 const groqKey = this.keyManager.getKey('groq')?.key || process.env.GROQ_API_KEY
                 const googleKey = this.keyManager.getKey('googleai')?.key || process.env.GOOGLE_API_KEY
-                const msgs = (params.messages || []) as Array<{ role: string; content: string }>
+                const openrouterKey = this.keyManager.getKey('openrouter')?.key || process.env.OPENROUTER_API_KEY
+                if (groqKey) keys.GROQ_API_KEY = groqKey
+                if (googleKey) keys.GOOGLE_API_KEY = googleKey
+                if (openrouterKey) keys.OPENROUTER_API_KEY = openrouterKey
 
-                if (groqKey) {
-                    const preset = CLASSIFIER_PRESETS.groq
-                    const result = await classifyWithLLM(msgs, preset.apiUrl, groqKey, preset.model)
+                if (Object.keys(keys).length > 0) {
+                    const result = await classifyWithCascade(msgs, keys)
                     task = result.task
-                    this.logger.log(`Task (LLM/${result.method}): '${task}' confidence=${result.confidence}`)
-                } else if (googleKey) {
-                    const preset = CLASSIFIER_PRESETS.googleai
-                    const result = await classifyWithLLM(msgs, preset.apiUrl, googleKey, preset.model)
-                    task = result.task
-                    this.logger.log(`Task (LLM/${result.method}): '${task}' confidence=${result.confidence}`)
+                    this.logger.log(`Task (${result.method}): '${task}' confidence=${result.confidence}`)
                 } else {
                     task = detectTask(promptText)
                     this.logger.log(`Task (heuristic): '${task}'`)
