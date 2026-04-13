@@ -1,5 +1,5 @@
-// src/selection/task-classifier.ts — LLM-based task classification with heuristic fallback
-import { detectTask as heuristicDetect, type TaskType } from './task-router.js';
+// src/selection/task-classifier.ts — LLM-based task classification
+import type { TaskType } from './task-router.js';
 
 const CLASSIFIER_PROMPT = 'Classify this prompt. Reply ONLY with one of: coding reasoning creative fast general\nPrompt: ';
 
@@ -77,8 +77,8 @@ export async function classifyWithLLM(
 
         return { task, method: 'llm', confidence: 0.85 };
     } catch {
-        // Fallback to heuristic on last message
-        return { task: heuristicDetect(lastMsg), method: 'heuristic', confidence: 0.5 };
+        // API failed — return general (cascade will try next provider)
+        return { task: 'general' as TaskType, method: 'heuristic', confidence: 0.1 };
     }
 }
 
@@ -114,9 +114,8 @@ export async function classifyWithCascade(
         // LLM failed (network error etc) — try next
     }
 
-    // All LLMs failed — heuristic
-    const lastMsg = messages[messages.length - 1]?.content || ''
-    return { task: heuristicDetect(lastMsg), method: 'heuristic', confidence: 0.5 }
+    // All LLMs failed — return general (no heuristic fallback)
+    return { task: 'general' as TaskType, method: 'no-classifier', confidence: 0.1 }
 }
 
 export const CLASSIFIER_PRESETS = {
