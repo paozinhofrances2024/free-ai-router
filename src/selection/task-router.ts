@@ -173,34 +173,44 @@ export function getTaskProfile(task: TaskType): TaskProfile {
     return TASK_PROFILES[task] || TASK_PROFILES.general;
 }
 
+// Pre-compiled regex patterns (avoids bun \b → \u0008 bug)
+const RE_CODING = /(?:^|[^a-z])(?:code|function|class|method|api|debug|implement|refactor|typescript|python|javascript|rust|sql|regex|algorithm)(?:$|[^a-z])/i;
+const RE_FIX_BUG = /fix\s+(?:bug|issue|error)/i;
+const RE_VISION = /(?:image|photo|screenshot|picture|diagram|chart|visual|look\s+at|describe\s+this)/i;
+const RE_SEE = /(?:^|\s)see(?:\s|$)/i;
+const RE_REASONING = /(?:^|[^a-z])(?:analyze|reason|logic|proof|math|calculate|compare|evaluate|deduce|solve)(?:$|[^a-z])/i;
+const RE_EXPLAIN_WHY = /explain\s+why/i;
+const RE_FAST = /(?:what is|who is|when\b|where\b|yes or no|true or false)/i;
+const RE_MATH_FAST = /\d+\s*[\+\-\*\/]\s*\d+/;
+const RE_CREATIVE = /(?:write|story|poem|creative|imagine|draft|compose|brainstorm)/i;
+
 /**
  * Detect task type from a prompt heuristically.
+ * Uses pre-compiled regex to avoid bun's \b → \u0008 transpilation bug.
  */
 export function detectTask(prompt: string): TaskType {
-    const lower = prompt.toLowerCase();
-
     // Coding indicators
-    if (/\b(code|function|class|method|api|debug|fix bug|implement|refactor|typescript|python|javascript|rust|sql|regex|algorithm)\b/.test(lower)) {
+    if (RE_CODING.test(prompt) || RE_FIX_BUG.test(prompt)) {
         return 'coding';
     }
 
-    // Reasoning indicators
-    if (/\b(analyze|reason|logic|proof|math|calculate|explain why|compare|evaluate|deduce|solve)\b/.test(lower)) {
-        return 'reasoning';
-    }
-
-    // Vision indicators
-    if (/\b(image|photo|screenshot|picture|diagram|chart|visual|see|look at)\b/.test(lower)) {
+    // Vision indicators (before reasoning — 'analyze' overlaps)
+    if (RE_VISION.test(prompt) || RE_SEE.test(prompt)) {
         return 'vision';
     }
 
+    // Reasoning indicators
+    if (RE_REASONING.test(prompt) || RE_EXPLAIN_WHY.test(prompt)) {
+        return 'reasoning';
+    }
+
     // Fast/short indicators
-    if (prompt.length < 50 && /\b(what is|who is|when|where|yes or no|true or false|\d+\s*[\+\-\*\/]\s*\d+)\b/.test(lower)) {
+    if (prompt.length < 50 && (RE_FAST.test(prompt) || RE_MATH_FAST.test(prompt))) {
         return 'fast';
     }
 
     // Creative indicators
-    if (/\b(write|story|poem|creative|imagine|draft|compose|brainstorm|idea)\b/.test(lower)) {
+    if (RE_CREATIVE.test(prompt)) {
         return 'creative';
     }
 

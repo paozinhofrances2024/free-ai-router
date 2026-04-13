@@ -3,14 +3,6 @@ import { detectTask as heuristicDetect, type TaskType } from './task-router.js';
 
 const CLASSIFIER_PROMPT = 'Classify this prompt. Reply ONLY with one of: coding reasoning creative fast general\nPrompt: ';
 
-/** Normalize with heuristic fallback for bad LLM responses */
-function classifyWithHeuristicFallback(prompt: string, raw: string): TaskType {
-    const fromLLM = normalize(raw);
-    if (fromLLM !== 'general') return fromLLM; // LLM gave a valid category
-    // LLM gave garbage — use heuristic
-    return detectTask(prompt);
-}
-
 /** Cache for classification results (LRU, 100 entries) */
 const classCache = new Map<string, { task: TaskType; ts: number }>();
 const CACHE_MAX = 100;
@@ -25,7 +17,7 @@ function normalize(raw: string): TaskType {
 }
 
 /**
- * Classify a prompt using a remote LLM API (fast/small model).
+ * Classify using a remote LLM API.
  * Falls back to heuristic if API fails.
  */
 export async function classifyWithLLM(
@@ -34,13 +26,13 @@ export async function classifyWithLLM(
     apiKey: string,
     model: string,
 ): Promise<{ task: TaskType; method: 'llm' | 'heuristic'; confidence: number }> {
-    // Build context from conversation history
-    const contextParts = messages.slice(-10).map(m => `${m.role}: ${m.content}`) // last 10 messages
+    // Build context from last 10 messages
+    const contextParts = messages.slice(-10).map(m => `${m.role}: ${m.content}`)
     const contextStr = contextParts.join('\n').slice(0, 800)
     const lastMsg = messages[messages.length - 1]?.content || ''
 
-    // Check cache based on last message
-    const cacheKey = lastMsg.slice(0, 200);
+    // Check cache
+    const cacheKey = `${model}:${lastMsg.slice(0, 200)}`;
     const cached = classCache.get(cacheKey);
     if (cached && Date.now() - cached.ts < CACHE_TTL) {
         return { task: cached.task, method: 'llm', confidence: 0.95 };
@@ -48,7 +40,7 @@ export async function classifyWithLLM(
 
     try {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 3000); // 3s max
+        const timeout = setTimeout(() => controller.abort(), 3000);
 
         const resp = await fetch(apiUrl, {
             method: 'POST',
@@ -85,29 +77,22 @@ export async function classifyWithLLM(
 
         return { task, method: 'llm', confidence: 0.85 };
     } catch {
-        // Fallback to heuristic
-        return { task: heuristicDetect(prompt), method: 'heuristic', confidence: 0.5 };
+        // Fallback to heuristic on last message
+        return { task: heuristicDetect(lastMsg), method: 'heuristic', confidence: 0.5 };
     }
 }
 
 /**
- * Quick heuristic-only classification (no API call).
- */
-export function classifyHeuristic(prompt: string): { task: TaskType; method: 'heuristic'; confidence: number } {
-    return { task: heuristicDetect(prompt), method: 'heuristic', confidence: 0.6 };
-}
-
-/**
- * Try multiple classifiers in sequence: free small models first, Groq fallback.
- * Returns first successful result.
+ * Try multiple classifiers in cascade: free small → paid reliable.
+ * Stops at first successful LLM response (confidence >= 0.7).
  */
 export async function classifyWithCascade(
     messages: Array<{ role: string; content: string }>,
     keys: Record<string, string>,
 ): Promise<{ task: TaskType; method: string; confidence: number }> {
-    // Chain: Google Gemma 1B → Google Gemma 4B → OpenRouter → Groq (fallback)
     const chain: Array<{ preset: typeof CLASSIFIER_PRESETS[keyof typeof CLASSIFIER_PRESETS]; key: string; name: string }> = []
 
+    // Free models first
     if (keys.GOOGLE_API_KEY) {
         chain.push({ preset: CLASSIFIER_PRESETS.googleai_gemma1b, key: keys.GOOGLE_API_KEY, name: 'gemma-1b' })
         chain.push({ preset: CLASSIFIER_PRESETS.googleai_gemma4b, key: keys.GOOGLE_API_KEY, name: 'gemma-4b' })
@@ -115,47 +100,44 @@ export async function classifyWithCascade(
     if (keys.OPENROUTER_API_KEY) {
         chain.push({ preset: CLASSIFIER_PRESETS.openrouter, key: keys.OPENROUTER_API_KEY, name: 'openrouter-gemma' })
     }
+    // Paid fallback — always works
     if (keys.GROQ_API_KEY) {
         chain.push({ preset: CLASSIFIER_PRESETS.groq, key: keys.GROQ_API_KEY, name: 'groq-llama8b' })
     }
 
+    // Try each in order, stop at first good result
     for (const { preset, key, name } of chain) {
         const result = await classifyWithLLM(messages, preset.apiUrl, key, preset.model)
-        if (result.method === 'llm' && result.confidence >= 0.7) {
+        if (result.method === 'llm') {
             return { ...result, method: name }
         }
-        // If LLM returned garbage, try next in chain
+        // LLM failed (network error etc) — try next
     }
 
-    // All failed — heuristic
+    // All LLMs failed — heuristic
     const lastMsg = messages[messages.length - 1]?.content || ''
     return { task: heuristicDetect(lastMsg), method: 'heuristic', confidence: 0.5 }
 }
 
-/**
- * Default classifier config for free tier providers.
- */
 export const CLASSIFIER_PRESETS = {
-    /** Primary classifiers (free, small models) */
     googleai_gemma1b: {
         apiUrl: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
         envVar: 'GOOGLE_API_KEY',
-        model: 'gemma-3-1b-it', // 14.4k req/day free
+        model: 'gemma-3-1b-it',
     },
     googleai_gemma4b: {
         apiUrl: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
         envVar: 'GOOGLE_API_KEY',
-        model: 'gemma-3-4b-it', // 14.4k req/day free
+        model: 'gemma-3-4b-it',
     },
     openrouter: {
         apiUrl: 'https://openrouter.ai/api/v1/chat/completions',
         envVar: 'OPENROUTER_API_KEY',
-        model: 'google/gemma-3-27b-it:free', // free on OpenRouter
+        model: 'google/gemma-3-27b-it:free',
     },
-    /** Fallback (paid, reliable, never stops) */
     groq: {
         apiUrl: 'https://api.groq.com/openai/v1/chat/completions',
         envVar: 'GROQ_API_KEY',
-        model: 'llama-3.1-8b-instant', // billing enabled, ~26ms
+        model: 'llama-3.1-8b-instant',
     },
 };
