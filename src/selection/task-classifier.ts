@@ -29,13 +29,18 @@ function normalize(raw: string): TaskType {
  * Falls back to heuristic if API fails.
  */
 export async function classifyWithLLM(
-    prompt: string,
+    messages: Array<{ role: string; content: string }>,
     apiUrl: string,
     apiKey: string,
     model: string,
 ): Promise<{ task: TaskType; method: 'llm' | 'heuristic'; confidence: number }> {
-    // Check cache
-    const cacheKey = prompt.slice(0, 200);
+    // Build context from conversation history
+    const contextParts = messages.slice(-10).map(m => `${m.role}: ${m.content}`) // last 10 messages
+    const contextStr = contextParts.join('\n').slice(0, 800)
+    const lastMsg = messages[messages.length - 1]?.content || ''
+
+    // Check cache based on last message
+    const cacheKey = lastMsg.slice(0, 200);
     const cached = classCache.get(cacheKey);
     if (cached && Date.now() - cached.ts < CACHE_TTL) {
         return { task: cached.task, method: 'llm', confidence: 0.95 };
@@ -53,7 +58,7 @@ export async function classifyWithLLM(
             },
             body: JSON.stringify({
                 model,
-                messages: [{ role: 'user', content: CLASSIFIER_PROMPT + prompt.slice(0, 500) }],
+                messages: [{ role: 'user', content: CLASSIFIER_PROMPT + contextStr }],
                 max_tokens: 10,
                 temperature: 0,
             }),
