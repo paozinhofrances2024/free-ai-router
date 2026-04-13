@@ -252,6 +252,7 @@ export class FreeAIRouterCore extends EventEmitter {
             const promptText = params.messages.map((m: any) => m.content).join(' ')
 
             if (this.config.useLLMClassifier) {
+                // Google AI first (Gemma 1B, 14.4k req/day = unlimited), then Groq
                 const googleKey = this.keyManager.getKey('googleai')?.key || process.env.GOOGLE_API_KEY
                 const groqKey = this.keyManager.getKey('groq')?.key || process.env.GROQ_API_KEY
 

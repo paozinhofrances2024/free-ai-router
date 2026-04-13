@@ -3,6 +3,14 @@ import { detectTask as heuristicDetect, type TaskType } from './task-router.js';
 
 const CLASSIFIER_PROMPT = 'Classify this prompt. Reply ONLY with one of: coding reasoning creative fast general\nPrompt: ';
 
+/** Normalize with heuristic fallback for bad LLM responses */
+function classifyWithHeuristicFallback(prompt: string, raw: string): TaskType {
+    const fromLLM = normalize(raw);
+    if (fromLLM !== 'general') return fromLLM; // LLM gave a valid category
+    // LLM gave garbage — use heuristic
+    return detectTask(prompt);
+}
+
 /** Cache for classification results (LRU, 100 entries) */
 const classCache = new Map<string, { task: TaskType; ts: number }>();
 const CACHE_MAX = 100;
@@ -88,19 +96,14 @@ export function classifyHeuristic(prompt: string): { task: TaskType; method: 'he
  * Default classifier config for free tier providers.
  */
 export const CLASSIFIER_PRESETS = {
-    groq: {
-        apiUrl: 'https://api.groq.com/openai/v1/chat/completions',
-        envVar: 'GROQ_API_KEY',
-        model: 'llama-3.1-8b-instant', // Free, ~26ms response
-    },
-    cerebras: {
-        apiUrl: 'https://api.cerebras.ai/v1/chat/completions',
-        envVar: 'CEREBRAS_API_KEY',
-        model: 'llama3.1-8b',
-    },
     googleai: {
         apiUrl: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
         envVar: 'GOOGLE_API_KEY',
-        model: 'gemma-3-1b-it', // Free, 14k req/day
+        model: 'gemma-3-1b-it', // Free, 14.4k req/day — unlimited for classification
+    },
+    groq: {
+        apiUrl: 'https://api.groq.com/openai/v1/chat/completions',
+        envVar: 'GROQ_API_KEY',
+        model: 'llama-3.1-8b-instant', // Free, ~26ms, more accurate but 1k req/day
     },
 };
