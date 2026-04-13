@@ -26,6 +26,7 @@ import { parseSSEStream } from './request/streaming.js'
 import { normalizeResponse, normalizeStreamChunk } from './compat/response-normalizer.js'
 import { FreeRouterError, NoAvailableModelError, AllKeysExhaustedError, ProviderError, mapHttpError } from './compat/error-mapper.js'
 import { createLogger, type Logger } from './utils/logger.js'
+import { StateStore } from './persistence/state-store.js'
 import { extractRetryAfter } from './quota/header-extractor.js'
 
 export class FreeAIRouterCore extends EventEmitter {
@@ -38,6 +39,7 @@ export class FreeAIRouterCore extends EventEmitter {
     private latencyTracker: LatencyTracker
     private healthAggregator: HealthAggregator
     private modelCache: ModelCache
+    private stateStore: StateStore | null = null
 
     private providerRegistry: Map<string, ProviderDef>
     private modelCatalog: ModelDef[]
@@ -66,6 +68,15 @@ export class FreeAIRouterCore extends EventEmitter {
         this.modelCatalog = [...MODEL_CATALOG]
 
         this.initKeys()
+
+        // Initialize persistence if stateFile is configured
+        if (this.config.stateFile) {
+            this.stateStore = new StateStore(this.config.stateFile, 5000, this.config.debug)
+            this.logger.log(`State persistence enabled: ${this.config.stateFile}`)
+        } else if (process.env.FREE_AI_ROUTER_STATE_FILE) {
+            this.stateStore = new StateStore(process.env.FREE_AI_ROUTER_STATE_FILE, 5000, this.config.debug)
+            this.logger.log(`State persistence enabled: ${process.env.FREE_AI_ROUTER_STATE_FILE}`)
+        }
     }
 
     // Typed event emitter methods
@@ -110,6 +121,14 @@ export class FreeAIRouterCore extends EventEmitter {
         let totalFail = 0
         let totalRetries = 0
 
+        // Merge persisted counters if available
+        const persistedGlobal = this.stateStore?.getGlobal()
+        if (persistedGlobal) {
+            totalReq += persistedGlobal.totalRequests
+            totalSucc += persistedGlobal.successfulRequests
+            totalFail += persistedGlobal.failedRequests
+        }
+
         const providerStats: Record<string, any> = {}
         for (const [id] of this.providerRegistry) {
             const latInfo = this.latencyTracker.getStats(id)
@@ -142,6 +161,16 @@ export class FreeAIRouterCore extends EventEmitter {
 
     public resetCircuitBreakers(): void {
         this.circuitBreaker.resetAll()
+    }
+
+    /** Get the persistent state store (for external access) */
+    public getStateStore(): StateStore | null {
+        return this.stateStore
+    }
+
+    /** Save state to disk immediately */
+    public saveState(): void {
+        this.stateStore?.save()
     }
 
     public async refreshModels(): Promise<void> {
@@ -342,6 +371,9 @@ export class FreeAIRouterCore extends EventEmitter {
                 const latencyMs = Date.now() - startTime
                 this.latencyTracker.record(pId, selectedModel.modelId, latencyMs)
 
+                // Persist to state store
+                this.stateStore?.recordSuccess(pId, latencyMs)
+
                 // 4. Return Normalized Data
                 return this.formatSuccessfulOutput(result, provider, selectedModel.modelId, latencyMs, executionAttempt)
             } catch (err: any) {
@@ -377,6 +409,7 @@ export class FreeAIRouterCore extends EventEmitter {
                     }
                 } else if (err.status >= 500 || err.name === 'TimeoutError' || err.name === 'FetchError') {
                     this.circuitBreaker.recordFailure(pId)
+                    this.stateStore?.recordFailure(pId, err.message)
                 }
 
                 // Try Fallback

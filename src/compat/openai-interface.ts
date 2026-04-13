@@ -68,6 +68,15 @@ export class FreeAIRouterOpenAI {
         this.core.on(event as any, listener)
         return this
     }
+
+    // State persistence access
+    public getStateStore() {
+        return this.core.getStateStore()
+    }
+
+    public saveState() {
+        this.core.saveState()
+    }
 }
 
 // Allows instanceof checks

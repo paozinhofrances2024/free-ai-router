@@ -76,6 +76,9 @@ export const RouterConfigSchema = z.object({
 
     /** Default model when none specified in request */
     defaultModel: z.string().optional(),
+
+    /** Path to persist router state to disk */
+    stateFile: z.string().optional(),
 }).strict();
 
 /** Validated and defaulted RouterConfig type */
