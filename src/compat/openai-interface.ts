@@ -77,6 +77,10 @@ export class FreeAIRouterOpenAI {
     public saveState() {
         this.core.saveState()
     }
+
+    public getQuotaStatus() {
+        return this.core.getQuotaMonitor().getStatus()
+    }
 }
 
 // Allows instanceof checks

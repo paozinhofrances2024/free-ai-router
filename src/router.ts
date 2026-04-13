@@ -27,6 +27,7 @@ import { normalizeResponse, normalizeStreamChunk } from './compat/response-norma
 import { FreeRouterError, NoAvailableModelError, AllKeysExhaustedError, ProviderError, mapHttpError } from './compat/error-mapper.js'
 import { createLogger, type Logger } from './utils/logger.js'
 import { StateStore } from './persistence/state-store.js'
+import { QuotaMonitor } from './health/quota-monitor.js'
 import { extractRetryAfter } from './quota/header-extractor.js'
 
 export class FreeAIRouterCore extends EventEmitter {
@@ -40,6 +41,7 @@ export class FreeAIRouterCore extends EventEmitter {
     private healthAggregator: HealthAggregator
     private modelCache: ModelCache
     private stateStore: StateStore | null = null
+    private quotaMonitor: QuotaMonitor
 
     private providerRegistry: Map<string, ProviderDef>
     private modelCatalog: ModelDef[]
@@ -62,6 +64,7 @@ export class FreeAIRouterCore extends EventEmitter {
             this.latencyTracker
         )
         this.modelCache = new ModelCache()
+        this.quotaMonitor = new QuotaMonitor({ debug: this.config.debug })
 
         // Initialize provider and model registries
         this.providerRegistry = new Map(PROVIDER_REGISTRY)
@@ -171,6 +174,11 @@ export class FreeAIRouterCore extends EventEmitter {
     /** Save state to disk immediately */
     public saveState(): void {
         this.stateStore?.save()
+    }
+
+    /** Get quota monitor for status checks */
+    public getQuotaMonitor(): QuotaMonitor {
+        return this.quotaMonitor
     }
 
     public async refreshModels(): Promise<void> {
@@ -373,6 +381,7 @@ export class FreeAIRouterCore extends EventEmitter {
 
                 // Persist to state store
                 this.stateStore?.recordSuccess(pId, latencyMs)
+                this.quotaMonitor.recordSuccess(pId, selectedModel.modelId)
 
                 // 4. Return Normalized Data
                 return this.formatSuccessfulOutput(result, provider, selectedModel.modelId, latencyMs, executionAttempt)
@@ -392,6 +401,7 @@ export class FreeAIRouterCore extends EventEmitter {
 
                     this.logger.warn(`Rate limited on ${pId}, rotating key`)
                     this.keyManager.markKeyRateLimited(pId, keyEntry!.key, retryAfter * 1000)
+                    this.quotaMonitor.recordRateLimit(pId, selectedModel.modelId)
 
                     if (this.config.rotateOnRateLimit) {
                         const nextKey = this.keyManager.rotateKey(pId)
