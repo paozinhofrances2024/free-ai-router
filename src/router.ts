@@ -29,6 +29,7 @@ import { createLogger, type Logger } from './utils/logger.js'
 import { StateStore } from './persistence/state-store.js'
 import { QuotaMonitor } from './health/quota-monitor.js'
 import { scoreForTask, detectTask, type TaskType } from './selection/task-router.js'
+import { classifyWithLLM, CLASSIFIER_PRESETS, type TaskType as TT } from './selection/task-classifier.js'
 import { extractRetryAfter } from './quota/header-extractor.js'
 
 export class FreeAIRouterCore extends EventEmitter {
@@ -244,11 +245,35 @@ export class FreeAIRouterCore extends EventEmitter {
 
     public async resolveModel(params: any = {}): Promise<ModelResolution> {
         const requestedModel = typeof params.model === 'string' ? params.model : this.config.defaultModel
-        const task: TaskType = params.task || this.config.defaultTask || (
-            this.config.autoDetectTask && params.messages?.length
-                ? detectTask(params.messages.map((m: any) => m.content).join(' '))
-                : 'general'
-        )
+
+        // Task detection: LLM-based or heuristic
+        let task: TaskType = params.task || this.config.defaultTask || 'general'
+        if (!params.task && !this.config.defaultTask && this.config.autoDetectTask && params.messages?.length) {
+            const promptText = params.messages.map((m: any) => m.content).join(' ')
+
+            if (this.config.useLLMClassifier) {
+                // Try Groq first (fastest), then Google AI
+                const groqKey = this.keyManager.getKey('groq')?.key || process.env.GROQ_API_KEY
+                const googleKey = this.keyManager.getKey('googleai')?.key || process.env.GOOGLE_API_KEY
+
+                if (groqKey) {
+                    const preset = CLASSIFIER_PRESETS.groq
+                    const result = await classifyWithLLM(promptText, preset.apiUrl, groqKey, preset.model)
+                    task = result.task
+                    this.logger.log(`Task (LLM/${result.method}): '${task}' confidence=${result.confidence}`)
+                } else if (googleKey) {
+                    const preset = CLASSIFIER_PRESETS.googleai
+                    const result = await classifyWithLLM(promptText, preset.apiUrl, googleKey, preset.model)
+                    task = result.task
+                    this.logger.log(`Task (LLM/${result.method}): '${task}' confidence=${result.confidence}`)
+                } else {
+                    task = detectTask(promptText)
+                    this.logger.log(`Task (heuristic): '${task}'`)
+                }
+            } else {
+                task = detectTask(promptText)
+            }
+        }
 
         const availableModels = await this.getAvailableModels()
 
