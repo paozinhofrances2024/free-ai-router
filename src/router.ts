@@ -252,16 +252,16 @@ export class FreeAIRouterCore extends EventEmitter {
             const promptText = params.messages.map((m: any) => m.content).join(' ')
 
             if (this.config.useLLMClassifier) {
-                // Google AI first (Gemma 1B, 14.4k req/day = unlimited), then Groq
-                const googleKey = this.keyManager.getKey('googleai')?.key || process.env.GOOGLE_API_KEY
+                // Groq Llama 8B (billing = no limits, ~26ms)
                 const groqKey = this.keyManager.getKey('groq')?.key || process.env.GROQ_API_KEY
+                const googleKey = this.keyManager.getKey('googleai')?.key || process.env.GOOGLE_API_KEY
 
-                if (googleKey) {
-                    const preset = CLASSIFIER_PRESETS.googleai
-                    const result = await classifyWithLLM(promptText, preset.apiUrl, googleKey, preset.model)
+                if (groqKey) {
+                    const preset = CLASSIFIER_PRESETS.groq
+                    const result = await classifyWithLLM(promptText, preset.apiUrl, groqKey, preset.model)
                     task = result.task
                     this.logger.log(`Task (LLM/${result.method}): '${task}' confidence=${result.confidence}`)
-                } else if (groqKey) {
+                } else if (googleKey) {
                     const preset = CLASSIFIER_PRESETS.groq
                     const result = await classifyWithLLM(promptText, preset.apiUrl, groqKey, preset.model)
                     task = result.task

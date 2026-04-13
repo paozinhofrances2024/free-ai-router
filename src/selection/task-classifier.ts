@@ -96,14 +96,14 @@ export function classifyHeuristic(prompt: string): { task: TaskType; method: 'he
  * Default classifier config for free tier providers.
  */
 export const CLASSIFIER_PRESETS = {
-    googleai: {
-        apiUrl: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
-        envVar: 'GOOGLE_API_KEY',
-        model: 'gemma-3-1b-it', // Free, 14.4k req/day — unlimited for classification
-    },
     groq: {
         apiUrl: 'https://api.groq.com/openai/v1/chat/completions',
         envVar: 'GROQ_API_KEY',
-        model: 'llama-3.1-8b-instant', // Free, ~26ms, more accurate but 1k req/day
+        model: 'llama-3.1-8b-instant', // ~26ms, billing enabled = no limits
+    },
+    googleai: {
+        apiUrl: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+        envVar: 'GOOGLE_API_KEY',
+        model: 'gemma-3-1b-it', // 14.4k req/day free fallback
     },
 };
